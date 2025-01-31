@@ -13,15 +13,19 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_SECRET,
 })
 
+type UploadResult =
+    | { success: UploadApiResponse; error?: never }
+    | { error: string; success?: never }
+
 const formData = z.object({
     image: z.instanceof(FormData),
 })
 
 export const uploadImage = actionClient
     .schema(formData)
-    .action(async ({ parsedInput: { image } }) => {
+    .action(async ({ parsedInput: { image } }): Promise<UploadResult> => {
         const formImage = image.get('image');
-        
+
         if (!formImage) {
             return {
                 error: 'No image was provided',
@@ -36,9 +40,7 @@ export const uploadImage = actionClient
 
         const file = formImage as File;
 
-        type UploadResult = 
-        | { success: UploadApiResponse; error?: never }
-        | { error: string; success?: never }
+
         try {
             const arrayBuffer = await file.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
@@ -47,16 +49,15 @@ export const uploadImage = actionClient
                     upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
                 }, (error, result) => {
                     if (error || !result) {
-                        reject({error: 'Upload failed'});
+                        reject({ error: 'Upload failed' });
                     } else {
-                        resolve({success: result});
+                        resolve({ success: result });
                     }
                 })
                 uploadStream.end(buffer);
             })
         } catch (error) {
-            return {
-                error: error,
-            }
+            console.error("Error processing file:", error)
+            return { error: "Error processing file" }
         }
     })

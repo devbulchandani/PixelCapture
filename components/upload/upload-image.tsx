@@ -4,8 +4,16 @@ import { uploadImage } from "@/server/upload-image";
 import { useDropzone } from "react-dropzone"
 import { Card, CardContent } from "../ui/card";
 import { cn } from "@/lib/utils";
+import { useImageStore } from "@/lib/image-store";
+import { useLayerStore } from "@/lib/layer-store";
 
 export default function UploadImage() {
+
+    const setGenerating = useImageStore((state) => state.setGenerating);
+    const activeLayer = useLayerStore((state) => state.activeLayer);
+    const updateLayer = useLayerStore((state) => state.updateLayer);
+    const setActiveLayer = useLayerStore((state) => state.setActiveLayer);
+
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         maxFiles: 1,
         accept: {
@@ -21,12 +29,44 @@ export default function UploadImage() {
                 const formData = new FormData();
                 formData.append('image', acceptedFiles[0]);
                 const objectUrl = URL.createObjectURL(acceptedFiles[0]);
+                setGenerating(true);
+                updateLayer({
+                    id: activeLayer.id,
+                    url: objectUrl,
+                    height: 0,
+                    width: 0,
+                    publicId: "",
+                    name: "uploading",
+                    format: "",
+                    resourceType: "image"
+                })
+
+                setActiveLayer(activeLayer.id);
                 //State Management Stuff to create layers, set active layers, set the image as the active layer
                 const res = await uploadImage({ image: formData });
-                console.log(res);
+                if (res?.data?.success) {
+                    updateLayer({
+                        id: activeLayer.id,
+                        url: res.data.success.url,
+                        width: res.data.success.width,
+                        height: res.data.success.height,
+                        name: res.data.success.original_filename,
+                        publicId: res.data.success.public_id,
+                        format: res.data.success.format,
+                        resourceType: res.data.success.resource_type,
+                    })
+                    setActiveLayer(activeLayer.id);
+                    setGenerating(false);
+                }
+                if (res?.data?.error) {
+                    setGenerating(false);
+
+                }
             }
         },
     });
+
+    if (!activeLayer.url)
     return (
         <Card
             {...getRootProps()}
